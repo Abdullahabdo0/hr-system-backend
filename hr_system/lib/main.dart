@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'screens/login_screen.dart';
+import 'screens/landing_screen.dart';
 import 'providers/theme_provider.dart';
 
 void main() {
@@ -22,19 +22,19 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           title: 'نظام إدارة المخازن للموارد البشرية',
           theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1DB954)),
             useMaterial3: true,
           ),
           darkTheme: ThemeData(
             colorScheme: ColorScheme.fromSeed(
-              seedColor: Colors.green,
+              seedColor: const Color(0xFF1DB954),
               brightness: Brightness.dark,
             ),
             useMaterial3: true,
           ),
           themeMode: themeProvider.themeMode,
           debugShowCheckedModeBanner: false,
-          home: const LoginScreen(),
+          home: const LandingScreen(),
         );
       },
     );

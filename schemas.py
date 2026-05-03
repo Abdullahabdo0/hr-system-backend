@@ -25,6 +25,10 @@ class EmployeeBase(BaseModel):
     phone: Optional[str] = None
     position: Optional[str] = None
     department: Optional[str] = None
+    location: Optional[str] = None
+    national_id: Optional[str] = None
+    qualification: Optional[str] = None
+    address: Optional[str] = None
     hire_date: Optional[datetime] = None
     salary: Optional[float] = None
     status: str = 'active'

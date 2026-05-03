@@ -1,8 +1,10 @@
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/api_service.dart';
+
 import '../models/employee.dart';
+import '../services/api_service.dart';
 
 class EmployeeFormScreen extends StatefulWidget {
   final Employee? employee;
@@ -22,22 +24,32 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
   final _phoneController = TextEditingController();
   final _positionController = TextEditingController();
   final _departmentController = TextEditingController();
+  final _locationController = TextEditingController();
+  final _nationalIdController = TextEditingController();
+  final _qualificationController = TextEditingController();
+  final _addressController = TextEditingController();
   final _salaryController = TextEditingController();
+
   DateTime _hireDate = DateTime.now();
   String _status = 'active';
 
   @override
   void initState() {
     super.initState();
-    if (widget.employee != null) {
-      _nameController.text = widget.employee!.name;
-      _emailController.text = widget.employee!.email;
-      _phoneController.text = widget.employee!.phone;
-      _positionController.text = widget.employee!.position;
-      _departmentController.text = widget.employee!.department;
-      _salaryController.text = widget.employee!.salary.toString();
-      _hireDate = widget.employee!.hireDate;
-      _status = widget.employee!.status;
+    final employee = widget.employee;
+    if (employee != null) {
+      _nameController.text = employee.name;
+      _emailController.text = employee.email;
+      _phoneController.text = employee.phone;
+      _positionController.text = employee.position;
+      _departmentController.text = employee.department;
+      _locationController.text = employee.location;
+      _nationalIdController.text = employee.nationalId;
+      _qualificationController.text = employee.qualification;
+      _addressController.text = employee.address;
+      _salaryController.text = employee.salary.toString();
+      _hireDate = employee.hireDate;
+      _status = employee.status;
     }
   }
 
@@ -48,6 +60,10 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
     _phoneController.dispose();
     _positionController.dispose();
     _departmentController.dispose();
+    _locationController.dispose();
+    _nationalIdController.dispose();
+    _qualificationController.dispose();
+    _addressController.dispose();
     _salaryController.dispose();
     super.dispose();
   }
@@ -57,13 +73,17 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
 
     final employee = Employee(
       id: widget.employee?.id,
-      name: _nameController.text,
-      email: _emailController.text,
-      phone: _phoneController.text,
-      position: _positionController.text,
-      department: _departmentController.text,
+      name: _nameController.text.trim(),
+      email: _emailController.text.trim(),
+      phone: _phoneController.text.trim(),
+      position: _positionController.text.trim(),
+      department: _departmentController.text.trim(),
+      location: _locationController.text.trim(),
+      nationalId: _nationalIdController.text.trim(),
+      qualification: _qualificationController.text.trim(),
+      address: _addressController.text.trim(),
       hireDate: _hireDate,
-      salary: double.tryParse(_salaryController.text) ?? 0,
+      salary: double.tryParse(_salaryController.text.trim()) ?? 0,
       status: _status,
     );
 
@@ -73,19 +93,43 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
       } else {
         await _apiService.updateEmployee(employee);
       }
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(widget.employee == null ? 'تمت إضافة الموظف' : 'تم تعديل الموظف')),
-        );
-      }
+
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.employee == null ? 'تمت إضافة الموظف' : 'تم تعديل الموظف',
+          ),
+        ),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ: $e')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
     }
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      validator: (value) =>
+          value?.trim().isEmpty ?? true ? 'الرجاء إدخال $label' : null,
+    );
   }
 
   @override
@@ -94,7 +138,9 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
       textDirection: ui.TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.employee == null ? 'إضافة موظف جديد' : 'تعديل الموظف'),
+          title: Text(
+            widget.employee == null ? 'إضافة موظف جديد' : 'تعديل الموظف',
+          ),
           backgroundColor: Colors.green.shade700,
         ),
         body: SingleChildScrollView(
@@ -103,67 +149,71 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
             key: _formKey,
             child: Column(
               children: [
-                TextFormField(
+                _buildField(
                   controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: 'اسم الموظف',
-                    prefixIcon: const Icon(Icons.person),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  validator: (value) => value?.isEmpty ?? true ? 'الرجاء إدخال الاسم' : null,
+                  label: 'اسم الموظف',
+                  icon: Icons.person,
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    labelText: 'البريد الإلكتروني',
-                    prefixIcon: const Icon(Icons.email),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) => value?.isEmpty ?? true ? 'الرجاء إدخال البريد الإلكتروني' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _phoneController,
-                  decoration: InputDecoration(
-                    labelText: 'رقم الهاتف',
-                    prefixIcon: const Icon(Icons.phone),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  keyboardType: TextInputType.phone,
-                  validator: (value) => value?.isEmpty ?? true ? 'الرجاء إدخال رقم الهاتف' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
+                _buildField(
                   controller: _positionController,
-                  decoration: InputDecoration(
-                    labelText: 'المنصب الوظيفي',
-                    prefixIcon: const Icon(Icons.work),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  validator: (value) => value?.isEmpty ?? true ? 'الرجاء إدخال المنصب' : null,
+                  label: 'الوظيفة',
+                  icon: Icons.work,
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
+                _buildField(
                   controller: _departmentController,
-                  decoration: InputDecoration(
-                    labelText: 'القسم',
-                    prefixIcon: const Icon(Icons.business),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  validator: (value) => value?.isEmpty ?? true ? 'الرجاء إدخال القسم' : null,
+                  label: 'القسم',
+                  icon: Icons.business,
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _salaryController,
-                  decoration: InputDecoration(
-                    labelText: 'الراتب',
-                    prefixIcon: const Icon(Icons.attach_money),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+                _buildField(
+                  controller: _locationController,
+                  label: 'المكان',
+                  icon: Icons.location_on,
+                ),
+                const SizedBox(height: 16),
+                _buildField(
+                  controller: _nationalIdController,
+                  label: 'رقم القومي',
+                  icon: Icons.credit_card,
                   keyboardType: TextInputType.number,
-                  validator: (value) => value?.isEmpty ?? true ? 'الرجاء إدخال الراتب' : null,
+                ),
+                const SizedBox(height: 16),
+                _buildField(
+                  controller: _qualificationController,
+                  label: 'المؤهل',
+                  icon: Icons.school,
+                ),
+                const SizedBox(height: 16),
+                _buildField(
+                  controller: _phoneController,
+                  label: 'رقم التلفون',
+                  icon: Icons.phone,
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 16),
+                _buildField(
+                  controller: _addressController,
+                  label: 'العنوان',
+                  icon: Icons.home,
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                _buildField(
+                  controller: _emailController,
+                  label: 'البريد الإلكتروني',
+                  icon: Icons.email,
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+                _buildField(
+                  controller: _salaryController,
+                  label: 'الراتب',
+                  icon: Icons.attach_money,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 ListTile(
@@ -188,13 +238,16 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
                   decoration: InputDecoration(
                     labelText: 'الحالة',
                     prefixIcon: const Icon(Icons.check_circle),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   items: const [
                     DropdownMenuItem(value: 'active', child: Text('نشط')),
                     DropdownMenuItem(value: 'inactive', child: Text('غير نشط')),
                   ],
-                  onChanged: (value) => setState(() => _status = value!),
+                  onChanged: (value) =>
+                      setState(() => _status = value ?? 'active'),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
@@ -204,7 +257,9 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
                     onPressed: _save,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green.shade700,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: const Text(
                       'حفظ',

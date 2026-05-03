@@ -9,7 +9,8 @@ import '../models/performance_review.dart';
 import '../models/audit_log.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://147d-41-235-176-212.ngrok-free.app/api';
+  static const String baseUrl =
+      'https://hr-system-backend-production-c02d.up.railway.app/api';
 
   // Auth
   Future<Map<String, dynamic>?> login(String username, String password) async {
@@ -25,7 +26,12 @@ class ApiService {
     return null;
   }
 
-  Future<User?> register(String username, String password, String role, {int? employeeId}) async {
+  Future<User?> register(
+    String username,
+    String password,
+    String role, {
+    int? employeeId,
+  }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/register'),
       headers: {'Content-Type': 'application/json'},
@@ -153,7 +159,7 @@ class ApiService {
     final response = await http.put(
       Uri.parse('$baseUrl/leaves/$leaveId/approve'),
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: {'approved_by': approvedBy},
+      body: {'approved_by': approvedBy.toString()},
     );
     if (response.statusCode != 200) {
       throw Exception('Failed to approve leave');
@@ -204,7 +210,9 @@ class ApiService {
   }
 
   // Performance
-  Future<List<PerformanceReview>> getPerformanceReviews({int? employeeId}) async {
+  Future<List<PerformanceReview>> getPerformanceReviews({
+    int? employeeId,
+  }) async {
     String url = '$baseUrl/performance';
     if (employeeId != null) {
       url += '?employee_id=$employeeId';

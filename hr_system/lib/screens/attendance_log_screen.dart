@@ -1,9 +1,10 @@
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/api_service.dart';
+
 import '../models/attendance.dart';
-import '../models/employee.dart';
+import '../services/api_service.dart';
 
 class AttendanceLogScreen extends StatefulWidget {
   const AttendanceLogScreen({super.key});
@@ -14,10 +15,24 @@ class AttendanceLogScreen extends StatefulWidget {
 
 class _AttendanceLogScreenState extends State<AttendanceLogScreen> {
   final _apiService = ApiService();
+  final _searchController = TextEditingController();
+
   List<Map<String, dynamic>> _attendanceRecords = [];
-  List<Employee> _employees = [];
   bool _isLoading = true;
-  int? _selectedEmployeeId;
+  String _searchQuery = '';
+
+  List<Map<String, dynamic>> get _filteredRecords {
+    if (_searchQuery.trim().isEmpty) {
+      return _attendanceRecords;
+    }
+
+    final query = _searchQuery.trim().toLowerCase();
+    return _attendanceRecords.where((record) {
+      final employeeName = (record['employeeName'] as String).toLowerCase();
+      final employeeNumber = (record['employeeIdText'] as String).toLowerCase();
+      return employeeName.contains(query) || employeeNumber.contains(query);
+    }).toList();
+  }
 
   @override
   void initState() {
@@ -25,56 +40,48 @@ class _AttendanceLogScreenState extends State<AttendanceLogScreen> {
     _loadData();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
       final attendance = await _apiService.getAttendanceRecords();
       final employees = await _apiService.getEmployees();
-      
-      // Join attendance with employee names
-      final records = <Map<String, dynamic>>[];
-      for (var att in attendance) {
-        final employee = employees.firstWhere(
-          (e) => e.id == att.employeeId,
-          orElse: () => Employee(
-            id: att.employeeId,
-            name: 'غير معروف',
-            email: '',
-            phone: '',
-            position: '',
-            department: '',
-            hireDate: DateTime.now(),
-            salary: 0,
-          ),
-        );
-        records.add({
-          'attendance': att,
-          'employeeName': employee.name,
-        });
-      }
-      
-      setState(() {
-        _attendanceRecords = records;
-        _employees = employees;
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ: $e')),
-        );
-      }
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
+      final employeesById = {
+        for (final employee in employees) employee.id: employee,
+      };
 
-  List<Map<String, dynamic>> get _filteredRecords {
-    if (_selectedEmployeeId == null) return _attendanceRecords;
-    return _attendanceRecords.where((r) => r['attendance'].employeeId == _selectedEmployeeId).toList();
+      final records = attendance.map((att) {
+        final employee = employeesById[att.employeeId];
+        return {
+          'attendance': att,
+          'employeeName': employee?.name ?? 'غير معروف',
+          'employeeIdText': att.employeeId.toString(),
+        };
+      }).toList();
+
+      if (!mounted) return;
+      setState(() => _attendanceRecords = records);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final filteredRecords = _filteredRecords;
+
     return Directionality(
       textDirection: ui.TextDirection.rtl,
       child: Scaffold(
@@ -86,70 +93,101 @@ class _AttendanceLogScreenState extends State<AttendanceLogScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: DropdownButtonFormField<int?>(
-                initialValue: _selectedEmployeeId,
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() => _searchQuery = value);
+                },
                 decoration: InputDecoration(
-                  labelText: 'فلترة حسب الموظف',
-                  prefixIcon: const Icon(Icons.filter_list),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  labelText: 'ابحث باسم الموظف أو رقمه',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searchQuery.isEmpty
+                      ? null
+                      : IconButton(
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                          icon: const Icon(Icons.clear),
+                        ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('جميع الموظفين')),
-                ..._employees.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name))),
-              ],
-              onChanged: (value) => setState(() => _selectedEmployeeId = value),
-            ),
+              ),
             ),
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : _filteredRecords.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.list_alt, size: 80, color: Colors.grey.shade400),
-                              const SizedBox(height: 16),
-                              const Text('لا يوجد سجلات'),
-                            ],
+                  : filteredRecords.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.list_alt,
+                            size: 80,
+                            color: Colors.grey.shade400,
                           ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _filteredRecords.length,
-                          itemBuilder: (context, index) {
-                            final record = _filteredRecords[index];
-                            final att = record['attendance'] as Attendance;
-                            final employeeName = record['employeeName'] as String;
-                            
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: Colors.green.shade700,
-                                  child: Text(
-                                    employeeName[0],
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                  ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _attendanceRecords.isEmpty
+                                ? 'لا يوجد سجلات'
+                                : 'لا يوجد نتيجة مطابقة للبحث',
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: filteredRecords.length,
+                      itemBuilder: (context, index) {
+                        final record = filteredRecords[index];
+                        final att = record['attendance'] as Attendance;
+                        final employeeName = record['employeeName'] as String;
+                        final employeeIdText =
+                            record['employeeIdText'] as String;
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.green.shade700,
+                              child: Text(
+                                employeeName.isNotEmpty ? employeeName[0] : '?',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                title: Text(employeeName),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('التاريخ: ${DateFormat('yyyy-MM-dd').format(att.date)}'),
-                                    if (att.checkInTime != null)
-                                      Text('حضور: ${DateFormat('HH:mm').format(att.checkInTime!)}'),
-                                    if (att.checkOutTime != null)
-                                      Text('انصراف: ${DateFormat('HH:mm').format(att.checkOutTime!)}'),
-                                    Text('الساعات: ${att.totalHours.toStringAsFixed(2)}'),
-                                    Text('الحالة: ${_getStatusText(att.status)}'),
-                                  ],
-                                ),
-                                trailing: _getStatusIcon(att.status),
                               ),
-                            );
-                          },
-                        ),
+                            ),
+                            title: Text(employeeName),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('رقم الموظف: $employeeIdText'),
+                                Text(
+                                  'التاريخ: ${DateFormat('yyyy-MM-dd').format(att.date)}',
+                                ),
+                                if (att.checkInTime != null)
+                                  Text(
+                                    'حضور: ${DateFormat('HH:mm').format(att.checkInTime!)}',
+                                  ),
+                                if (att.checkOutTime != null)
+                                  Text(
+                                    'انصراف: ${DateFormat('HH:mm').format(att.checkOutTime!)}',
+                                  ),
+                                Text(
+                                  'الساعات: ${att.totalHours.toStringAsFixed(2)}',
+                                ),
+                                Text('الحالة: ${_getStatusText(att.status)}'),
+                              ],
+                            ),
+                            trailing: _getStatusIcon(att.status),
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),

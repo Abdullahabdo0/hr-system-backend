@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base, SessionLocal
 from models import User
+from sqlalchemy import inspect, text
 import bcrypt
 from routes import (
     employees,
@@ -15,6 +16,23 @@ from routes import (
 
 # Create tables
 Base.metadata.create_all(bind=engine)
+
+def ensure_employee_columns():
+    inspector = inspect(engine)
+    columns = {column["name"] for column in inspector.get_columns("employees")}
+    required_columns = {
+        "location": "ALTER TABLE employees ADD COLUMN location VARCHAR",
+        "national_id": "ALTER TABLE employees ADD COLUMN national_id VARCHAR",
+        "qualification": "ALTER TABLE employees ADD COLUMN qualification VARCHAR",
+        "address": "ALTER TABLE employees ADD COLUMN address TEXT",
+    }
+
+    with engine.begin() as connection:
+        for column_name, statement in required_columns.items():
+            if column_name not in columns:
+                connection.execute(text(statement))
+
+ensure_employee_columns()
 
 # Create default admin user
 def create_default_admin():

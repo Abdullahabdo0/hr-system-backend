@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
+
 import '../models/employee.dart';
+import '../services/api_service.dart';
 import 'employee_form_screen.dart';
 
 class EmployeesScreen extends StatefulWidget {
@@ -12,8 +13,24 @@ class EmployeesScreen extends StatefulWidget {
 
 class _EmployeesScreenState extends State<EmployeesScreen> {
   final _apiService = ApiService();
+  final _searchController = TextEditingController();
+
   List<Employee> _employees = [];
   bool _isLoading = true;
+  String _searchQuery = '';
+
+  List<Employee> get _filteredEmployees {
+    if (_searchQuery.trim().isEmpty) {
+      return _employees;
+    }
+
+    final query = _searchQuery.trim().toLowerCase();
+    return _employees.where((employee) {
+      return employee.name.toLowerCase().contains(query) ||
+          employee.position.toLowerCase().contains(query) ||
+          employee.department.toLowerCase().contains(query);
+    }).toList();
+  }
 
   @override
   void initState() {
@@ -21,19 +38,27 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     _loadEmployees();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadEmployees() async {
     setState(() => _isLoading = true);
     try {
       final employees = await _apiService.getEmployees();
+      if (!mounted) return;
       setState(() => _employees = employees);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ: $e')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -57,97 +82,157 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       ),
     );
 
-    if (confirmed == true) {
-      try {
-        await _apiService.deleteEmployee(employee.id!);
-        await _loadEmployees();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تم حذف الموظف بنجاح')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('خطأ: $e')),
-          );
-        }
-      }
+    if (confirmed != true) return;
+
+    try {
+      await _apiService.deleteEmployee(employee.id!);
+      await _loadEmployees();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم حذف الموظف بنجاح')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final filteredEmployees = _filteredEmployees;
+
     return Scaffold(
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _employees.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.people_outline, size: 80, color: Colors.grey.shade400),
-                      const SizedBox(height: 16),
-                      const Text('لا يوجد موظفين'),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _employees.length,
-                  itemBuilder: (context, index) {
-                    final employee = _employees[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.green.shade700,
-                          child: Text(
-                            employee.name[0],
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        title: Text(employee.name),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('${employee.position} - ${employee.department}'),
-                            Text(employee.email),
-                            Text('الراتب: ${employee.salary.toStringAsFixed(2)}'),
-                          ],
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.green),
-                              onPressed: () async {
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => EmployeeFormScreen(employee: employee),
-                                  ),
-                                );
-                                _loadEmployees();
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      setState(() => _searchQuery = value);
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'ابحث باسم الموظف',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isEmpty
+                          ? null
+                          : IconButton(
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
                               },
+                              icon: const Icon(Icons.clear),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _deleteEmployee(employee),
-                            ),
-                          ],
-                        ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
+                Expanded(
+                  child: filteredEmployees.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.people_outline,
+                                size: 80,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _employees.isEmpty
+                                    ? 'لا يوجد موظفين'
+                                    : 'لا يوجد موظف مطابق للبحث',
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: filteredEmployees.length,
+                          itemBuilder: (context, index) {
+                            final employee = filteredEmployees[index];
+                            final employeeNumber =
+                                employee.id?.toString() ?? '-';
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: Colors.green.shade700,
+                                  child: Text(
+                                    employee.name.isNotEmpty
+                                        ? employee.name[0]
+                                        : '?',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                title: Text(employee.name),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('رقم الموظف: $employeeNumber'),
+                                    Text(
+                                      '${employee.position} - ${employee.department}',
+                                    ),
+                                    Text(employee.email),
+                                    Text(
+                                      'الراتب: ${employee.salary.toStringAsFixed(2)}',
+                                    ),
+                                  ],
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.edit,
+                                        color: Colors.green,
+                                      ),
+                                      onPressed: () async {
+                                        await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                EmployeeFormScreen(
+                                                  employee: employee,
+                                                ),
+                                          ),
+                                        );
+                                        _loadEmployees();
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Colors.red,
+                                      ),
+                                      onPressed: () =>
+                                          _deleteEmployee(employee),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           await Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const EmployeeFormScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const EmployeeFormScreen()),
           );
           _loadEmployees();
         },

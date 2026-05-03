@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'employees_screen.dart';
+
+import '../providers/theme_provider.dart';
 import 'attendance_log_screen.dart';
-import 'reports_screen.dart';
 import 'audit_log_screen.dart';
+import 'employees_screen.dart';
 import 'leave_management_screen.dart';
 import 'login_screen.dart';
-import '../providers/theme_provider.dart';
+import 'reports_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -18,12 +19,12 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = [
-    const EmployeesScreen(),
-    const AttendanceLogScreen(),
-    const ReportsScreen(),
-    const LeaveManagementScreen(),
-    const AuditLogScreen(),
+  final List<Widget> _screens = const [
+    EmployeesScreen(),
+    AttendanceLogScreen(),
+    ReportsScreen(),
+    LeaveManagementScreen(),
+    AuditLogScreen(),
   ];
 
   @override
@@ -32,7 +33,7 @@ class _MainScreenState extends State<MainScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('نظام إدارة المخازن للموارد البشرية'),
+          title: const Text('نظام إدارة الموارد البشرية'),
           backgroundColor: Colors.green.shade700,
           actions: [
             IconButton(
@@ -42,9 +43,12 @@ class _MainScreenState extends State<MainScreen> {
                     : Icons.dark_mode,
               ),
               onPressed: () {
-                Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
+                Provider.of<ThemeProvider>(
+                  context,
+                  listen: false,
+                ).toggleTheme();
               },
-              tooltip: 'الوضع الداكن',
+              tooltip: 'تبديل الوضع',
             ),
             IconButton(
               icon: const Icon(Icons.logout),
@@ -66,17 +70,14 @@ class _MainScreenState extends State<MainScreen> {
               icon: Icon(Icons.people),
               label: 'الموظفين',
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.list),
-              label: 'السجل',
-            ),
+            BottomNavigationBarItem(icon: Icon(Icons.list), label: 'السجل'),
             BottomNavigationBarItem(
               icon: Icon(Icons.assessment),
               label: 'التقارير',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_today),
-              label: 'الإجازات',
+              icon: Icon(Icons.assignment),
+              label: 'الطلبات',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.history),

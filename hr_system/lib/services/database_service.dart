@@ -62,11 +62,20 @@ class DatabaseService {
         phone VARCHAR(20),
         position VARCHAR(50),
         department VARCHAR(50),
+        location VARCHAR(100),
+        national_id VARCHAR(20),
+        qualification VARCHAR(100),
+        address TEXT,
         hire_date DATE NOT NULL,
         salary DECIMAL(10,2) DEFAULT 0,
         status VARCHAR(20) DEFAULT 'active'
       )
     ''');
+
+    await conn.execute("ALTER TABLE employees ADD COLUMN IF NOT EXISTS location VARCHAR(100)");
+    await conn.execute("ALTER TABLE employees ADD COLUMN IF NOT EXISTS national_id VARCHAR(20)");
+    await conn.execute("ALTER TABLE employees ADD COLUMN IF NOT EXISTS qualification VARCHAR(100)");
+    await conn.execute("ALTER TABLE employees ADD COLUMN IF NOT EXISTS address TEXT");
 
     // Create users table (depends on employees)
     await conn.execute('''
@@ -224,9 +233,13 @@ class DatabaseService {
       'phone': row[3],
       'position': row[4],
       'department': row[5],
-      'hire_date': row[6].toString(),
-      'salary': row[7],
-      'status': row[8],
+      'location': row[6],
+      'national_id': row[7],
+      'qualification': row[8],
+      'address': row[9],
+      'hire_date': row[10].toString(),
+      'salary': row[11],
+      'status': row[12],
     })).toList();
   }
 
@@ -246,9 +259,13 @@ class DatabaseService {
         'phone': row[3],
         'position': row[4],
         'department': row[5],
-        'hire_date': row[6].toString(),
-        'salary': row[7],
-        'status': row[8],
+        'location': row[6],
+        'national_id': row[7],
+        'qualification': row[8],
+        'address': row[9],
+        'hire_date': row[10].toString(),
+        'salary': row[11],
+        'status': row[12],
       });
     }
     return null;
@@ -258,8 +275,11 @@ class DatabaseService {
     final conn = await connection;
     final result = await conn.execute(
       '''
-      INSERT INTO employees (name, email, phone, position, department, hire_date, salary, status)
-      VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8)
+      INSERT INTO employees (
+        name, email, phone, position, department, location,
+        national_id, qualification, address, hire_date, salary, status
+      )
+      VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10, \$11, \$12)
       RETURNING id
       ''',
       parameters: [
@@ -268,6 +288,10 @@ class DatabaseService {
         employee.phone,
         employee.position,
         employee.department,
+        employee.location,
+        employee.nationalId,
+        employee.qualification,
+        employee.address,
         employee.hireDate,
         employee.salary,
         employee.status,
@@ -301,8 +325,10 @@ class DatabaseService {
       '''
       UPDATE employees 
       SET name = \$1, email = \$2, phone = \$3, position = \$4,
-          department = \$5, hire_date = \$6, salary = \$7, status = \$8
-      WHERE id = \$9
+          department = \$5, location = \$6, national_id = \$7,
+          qualification = \$8, address = \$9, hire_date = \$10,
+          salary = \$11, status = \$12
+      WHERE id = \$13
       ''',
       parameters: [
         employee.name,
@@ -310,6 +336,10 @@ class DatabaseService {
         employee.phone,
         employee.position,
         employee.department,
+        employee.location,
+        employee.nationalId,
+        employee.qualification,
+        employee.address,
         employee.hireDate,
         employee.salary,
         employee.status,
