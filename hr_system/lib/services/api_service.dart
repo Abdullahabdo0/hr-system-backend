@@ -93,6 +93,28 @@ class ApiService {
     }
   }
 
+  Future<String?> uploadImage(int employeeId, String filePath, {bool isWeb = false, List<int>? bytes, String? filename}) async {
+    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/employees/upload-image/$employeeId'));
+    
+    if (isWeb && bytes != null) {
+      request.files.add(http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: filename ?? 'profile.jpg',
+      ));
+    } else {
+      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+    }
+
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['url'];
+    }
+    return null;
+  }
+
   Future<void> deleteEmployee(int id) async {
     final response = await http.delete(Uri.parse('$baseUrl/employees/$id'));
     if (response.statusCode != 200) {

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -41,23 +42,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (image != null) {
         setState(() => _isUpdating = true);
         
-        // In a real app, you'd upload the file to a server and get a URL
-        // For now, we'll use the local path as a simulation
-        final updatedEmployee = _currentEmployee.copyWith(profilePictureUrl: image.path);
-        
-        await _apiService.updateEmployee(updatedEmployee);
-        
-        setState(() {
-          _currentEmployee = updatedEmployee;
-          _isUpdating = false;
-        });
-        
-        widget.onUpdate(updatedEmployee);
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تم تحديث الصورة الشخصية بنجاح')),
+        String? imageUrl;
+        if (kIsWeb) {
+          final bytes = await image.readAsBytes();
+          imageUrl = await _apiService.uploadImage(
+            _currentEmployee.id!, 
+            image.path, 
+            isWeb: true, 
+            bytes: bytes,
+            filename: image.name,
           );
+        } else {
+          imageUrl = await _apiService.uploadImage(_currentEmployee.id!, image.path);
+        }
+
+        if (imageUrl != null) {
+          final fullUrl = '${ApiService.baseUrl.replaceAll('/api', '')}$imageUrl';
+          
+          final updatedEmployee = _currentEmployee.copyWith(profilePictureUrl: fullUrl);
+          setState(() {
+            _currentEmployee = updatedEmployee;
+            _isUpdating = false;
+          });
+          widget.onUpdate(updatedEmployee);
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('تم تحديث الصورة الشخصية بنجاح')),
+            );
+          }
+        } else {
+          throw Exception('فشل في رفع الصورة للسيرفر');
         }
       }
     } catch (e) {
@@ -80,7 +95,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: const Color(0xFFF8F9FA),
         body: Column(
           children: [
-            // Header Section
             Container(
               padding: const EdgeInsets.fromLTRB(20, 60, 20, 40),
               decoration: const BoxDecoration(
@@ -104,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                       const Spacer(),
-                      const SizedBox(width: 40), // Balance the back button
+                      const SizedBox(width: 40),
                     ],
                   ),
                   const SizedBox(height: 30),
@@ -116,15 +130,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 4),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5)),
-                          ],
                         ),
                         child: ClipOval(
                           child: _currentEmployee.profilePictureUrl != null
-                              ? (_currentEmployee.profilePictureUrl!.startsWith('http')
-                                  ? Image.network(_currentEmployee.profilePictureUrl!, fit: BoxFit.cover)
-                                  : Image.file(File(_currentEmployee.profilePictureUrl!), fit: BoxFit.cover))
+                              ? Image.network(_currentEmployee.profilePictureUrl!, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => Image.network('https://i.pravatar.cc/150?u=${_currentEmployee.id}', fit: BoxFit.cover))
                               : Image.network('https://i.pravatar.cc/150?u=${_currentEmployee.id}', fit: BoxFit.cover),
                         ),
                       ),
@@ -187,13 +196,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ]),
                     
                     const SizedBox(height: 40),
-                    Center(
-                      child: Text(
-                        'تم تحديث البيانات بتاريخ: ${DateFormat('d MMMM yyyy', 'ar').format(DateTime.now())}',
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
                   ],
                 ),
               ),

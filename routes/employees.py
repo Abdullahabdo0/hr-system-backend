@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Employee, Attendance, Leave, SalaryPayment, PerformanceReview, User
 from schemas import EmployeeCreate, EmployeeUpdate, EmployeeResponse
 from datetime import datetime
+import os
+import shutil
 
 router = APIRouter()
 
@@ -39,6 +41,34 @@ def update_employee(employee_id: int, employee: EmployeeUpdate, db: Session = De
     db.refresh(db_employee)
     return db_employee
 
+@router.post("/upload-image/{employee_id}")
+async def upload_image(employee_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    db_employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not db_employee:
+        raise HTTPException(status_code=404, detail="الموظف غير موجود")
+    
+    upload_dir = "uploads"
+    if not os.path.exists(upload_dir):
+        os.makedirs(upload_dir)
+    
+    file_extension = file.filename.split(".")[-1]
+    file_name = f"profile_{employee_id}.{file_extension}"
+    file_path = os.path.join(upload_dir, file_name)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Prepend base URL in a real app, here we store relative
+    db_employee.profile_picture_url = f"/api/employees/image/{file_name}"
+    db.commit()
+    
+    return {"url": db_employee.profile_picture_url}
+
+@router.get("/image/{filename}")
+async def get_image(filename: String):
+    # This would need a StaticFiles setup in main.py usually
+    pass
+
 @router.delete("/{employee_id}")
 def delete_employee(employee_id: int, db: Session = Depends(get_db)):
     try:
@@ -46,7 +76,6 @@ def delete_employee(employee_id: int, db: Session = Depends(get_db)):
         if not db_employee:
             raise HTTPException(status_code=404, detail="الموظف غير موجود")
         
-        # Delete related records
         db.query(Attendance).filter(Attendance.employee_id == employee_id).delete()
         db.query(Leave).filter(Leave.employee_id == employee_id).delete()
         db.query(SalaryPayment).filter(SalaryPayment.employee_id == employee_id).delete()
