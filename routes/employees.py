@@ -65,7 +65,7 @@ async def upload_image(employee_id: int, file: UploadFile = File(...), db: Sessi
     return {"url": db_employee.profile_picture_url}
 
 @router.get("/image/{filename}")
-async def get_image(filename: String):
+async def get_image(filename: str):
     # This would need a StaticFiles setup in main.py usually
     pass
 
