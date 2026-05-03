@@ -386,15 +386,17 @@ class LandingScreen extends StatelessWidget {
           Row(
             children: [
               const Icon(Icons.ads_click_rounded, size: 90, color: Color(0xFF1DB954)),
-              const Spacer(),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _buildGoalItem('تسهيل العمليات الإدارية وإلغاء الورق'),
-                  _buildGoalItem('رفع كفاءة الأداء وتقليل الوقت'),
-                  _buildGoalItem('تحقيق الشفافية والدقة في التقارير'),
-                  _buildGoalItem('دعم اتخاذ القرار بالمعلومات الدقيقة'),
-                ],
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _buildGoalItem('تسهيل العمليات الإدارية وإلغاء الورق'),
+                    _buildGoalItem('رفع كفاءة الأداء وتقليل الوقت'),
+                    _buildGoalItem('تحقيق الشفافية والدقة في التقارير'),
+                    _buildGoalItem('دعم اتخاذ القرار بالمعلومات الدقيقة'),
+                  ],
+                ),
               ),
             ],
           ),
@@ -409,9 +411,12 @@ class LandingScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Text(
-            goal,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF222222), fontWeight: FontWeight.w600),
+          Expanded(
+            child: Text(
+              goal,
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF222222), fontWeight: FontWeight.w600),
+            ),
           ),
           const SizedBox(width: 12),
           const Icon(Icons.verified_rounded, color: Color(0xFF1DB954), size: 22),

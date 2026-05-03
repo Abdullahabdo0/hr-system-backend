@@ -1,5 +1,5 @@
+import 'dart:io';
 import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +12,7 @@ import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import 'leave_request_screen.dart';
 import 'login_screen.dart';
+import 'profile_screen.dart';
 
 class EmployeeDashboardScreen extends StatefulWidget {
   final User user;
@@ -33,11 +34,13 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
 
   List<Attendance> _attendanceRecords = [];
   List<Leave> _leaveRequests = [];
+  late Employee _employee;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _employee = widget.employee;
     _loadDashboardData();
   }
 
@@ -52,10 +55,12 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
 
       final attendance = await _apiService.getAttendanceRecords();
       final leaves = await _apiService.getLeaves(employeeId: employeeId);
+      final updatedEmployee = await _apiService.getEmployeeById(employeeId);
 
       if (!mounted) return;
 
       setState(() {
+        if (updatedEmployee != null) _employee = updatedEmployee;
         _attendanceRecords = attendance
             .where((record) => record.employeeId == employeeId)
             .toList();
@@ -74,38 +79,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     }
   }
 
-  Future<void> _checkIn() async {
-    try {
-      await _apiService.checkIn(widget.employee.id!);
-      await _loadDashboardData();
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('تم تسجيل الحضور بنجاح')));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
-    }
-  }
-
-  Future<void> _checkOut() async {
-    try {
-      await _apiService.checkOut(widget.employee.id!);
-      await _loadDashboardData();
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('تم تسجيل الانصراف بنجاح')));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
-    }
-  }
-
   bool _hasCheckedInToday() {
     if (_attendanceRecords.isEmpty) return false;
 
@@ -118,9 +91,23 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         record.date.month,
         record.date.day,
       );
-      return recordDay == today &&
-          record.checkInTime != null &&
-          record.checkOutTime == null;
+      return recordDay == today && record.checkInTime != null;
+    });
+  }
+
+  bool _hasCheckedOutToday() {
+    if (_attendanceRecords.isEmpty) return false;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    return _attendanceRecords.any((record) {
+      final recordDay = DateTime(
+        record.date.year,
+        record.date.month,
+        record.date.day,
+      );
+      return recordDay == today && record.checkOutTime != null;
     });
   }
 
@@ -141,466 +128,430 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     }
   }
 
-  String _getRequestTypeText(String type) {
-    switch (type) {
-      case 'annual':
-        return 'إجازة سنوية';
-      case 'sick':
-        return 'إجازة مرضية';
-      case 'personal':
-        return 'إجازة شخصية';
-      case 'rest':
-        return 'راحة';
-      case 'comp_rest':
-        return 'بدل راحة';
-      case 'mission':
-        return 'مأمورية';
-      default:
-        return type;
-    }
-  }
-
-  String _getRequestStatusText(String status) {
-    switch (status) {
-      case 'pending':
-        return 'قيد الانتظار';
-      case 'approved':
-        return 'تمت الموافقة';
-      case 'rejected':
-        return 'تم الرفض';
-      default:
-        return status;
-    }
-  }
-
-  Color _getRequestStatusColor(String status) {
-    switch (status) {
-      case 'pending':
-        return Colors.orange;
-      case 'approved':
-        return Colors.green;
-      case 'rejected':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getAttendanceStatusIcon(String status) {
-    switch (status) {
-      case 'present':
-        return Icons.check_circle;
-      case 'absent':
-        return Icons.cancel;
-      case 'late':
-        return Icons.access_time;
-      default:
-        return Icons.help;
-    }
-  }
-
-  Color _getAttendanceStatusColor(String status) {
-    switch (status) {
-      case 'present':
-        return Colors.green;
-      case 'absent':
-        return Colors.red;
-      case 'late':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final pendingCount = _leaveRequests
-        .where((request) => request.status == 'pending')
-        .length;
-    final approvedCount = _leaveRequests
-        .where((request) => request.status == 'approved')
-        .length;
-    final rejectedCount = _leaveRequests
-        .where((request) => request.status == 'rejected')
-        .length;
+    final primaryColor = const Color(0xFF1DB954);
+    final secondaryColor = const Color(0xFF2D9CDB);
+    final purpleColor = const Color(0xFF9B51E0);
 
     return Directionality(
       textDirection: ui.TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('لوحة الموظف'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _loadDashboardData,
-              tooltip: 'تحديث',
-            ),
-            IconButton(
-              icon: Icon(
-                Theme.of(context).brightness == Brightness.dark
-                    ? Icons.light_mode
-                    : Icons.dark_mode,
-              ),
-              onPressed: () {
-                Provider.of<ThemeProvider>(
-                  context,
-                  listen: false,
-                ).toggleTheme();
-              },
-              tooltip: 'تبديل الوضع',
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () => Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-              ),
-            ),
-          ],
-        ),
+        backgroundColor: const Color(0xFFF8F9FA),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : RefreshIndicator(
-                onRefresh: _loadDashboardData,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.employee.name,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
+            : Column(
+                children: [
+                  // 1. Dark Header Section
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0A0E27),
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(30),
+                        bottomRight: Radius.circular(30),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications_none, color: Colors.white, size: 28),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا توجد إشعارات جديدة')));
+                          },
+                        ),
+                        const Spacer(),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              'أهلاً بك، ${_employee.name.split(' ').first}',
+                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              _employee.position,
+                              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 15),
+                        Container(
+                          width: 55,
+                          height: 55,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white24, width: 2),
+                          ),
+                          child: ClipOval(
+                            child: _employee.profilePictureUrl != null
+                                ? (_employee.profilePictureUrl!.startsWith('http')
+                                    ? Image.network(_employee.profilePictureUrl!, fit: BoxFit.cover)
+                                    : Image.file(File(_employee.profilePictureUrl!), fit: BoxFit.cover))
+                                : Image.network('https://i.pravatar.cc/150?u=${_employee.id}', fit: BoxFit.cover),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: _loadDashboardData,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'لوحة التحكم',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1A1A1A)),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // 2. Action Cards Grid
+                            _buildActionCard(
+                              'تسجيل الحضور/الانصراف',
+                              'سجل حضورك وانصرافك اليومي',
+                              Icons.calendar_today_rounded,
+                              const Color(0xFFE8F5E9),
+                              primaryColor,
+                              () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => EmployeeAttendanceScreen(
+                                    employee: widget.employee,
+                                    onRefresh: _loadDashboardData,
+                                    hasCheckedIn: _hasCheckedInToday(),
+                                    hasCheckedOut: _hasCheckedOutToday(),
+                                  ),
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Text('الوظيفة: ${widget.employee.position}'),
-                              Text('القسم: ${widget.employee.department}'),
-                              Text('المكان: ${widget.employee.location}'),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.attach_money,
-                                    color: Colors.green,
+                            ),
+                            const SizedBox(height: 15),
+                            _buildActionCard(
+                              'طلب إجازة',
+                              'تقديم طلب إجازة جديدة',
+                              Icons.umbrella_outlined,
+                              const Color(0xFFE3F2FD),
+                              secondaryColor,
+                              () => _openRequestScreen('annual'),
+                            ),
+                            const SizedBox(height: 15),
+                             _buildActionCard(
+                              'الملف الشخصي',
+                              'عرض وتعديل بياناتي الشخصية',
+                              Icons.person_outline,
+                              const Color(0xFFF3E5F5),
+                              purpleColor,
+                              () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ProfileScreen(
+                                      user: widget.user,
+                                      employee: _employee,
+                                      onUpdate: (updated) {
+                                        setState(() => _employee = updated);
+                                      },
+                                    ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'الراتب: ${widget.employee.salary.toStringAsFixed(2)}',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green,
+                                );
+                              },
+                            ),
+
+                            const SizedBox(height: 35),
+                            const Text(
+                              'حالتك اليوم',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1A1A1A)),
+                            ),
+                            const SizedBox(height: 15),
+
+                            // 3. Status Today Card
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        _hasCheckedOutToday() ? 'تم الانصراف' : (_hasCheckedInToday() ? 'حاضر' : 'لم يتم تسجيل الحضور'),
+                                        style: TextStyle(
+                                          color: _hasCheckedOutToday() ? Colors.grey : (_hasCheckedInToday() ? primaryColor : Colors.orange),
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      if (_hasCheckedOutToday() && _attendanceRecords.isNotEmpty) ...[
+                                        Text(
+                                          'تم تسجيل انصرافك في',
+                                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                        ),
+                                        Text(
+                                          DateFormat('hh:mm a').format(_attendanceRecords.last.checkOutTime ?? DateTime.now()),
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        ),
+                                      ] else if (_hasCheckedInToday() && _attendanceRecords.isNotEmpty) ...[
+                                        Text(
+                                          'تم تسجيل حضورك في',
+                                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                        ),
+                                        Text(
+                                          DateFormat('hh:mm a').format(_attendanceRecords.last.checkInTime ?? DateTime.now()),
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        ),
+                                      ] else 
+                                        Text(
+                                          'بانتظار تسجيل الحضور',
+                                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                        ),
+                                    ],
+                                  ),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: (_hasCheckedOutToday() ? Colors.grey : (_hasCheckedInToday() ? primaryColor : Colors.orange)).withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      _hasCheckedOutToday() ? Icons.done_all : (_hasCheckedInToday() ? Icons.check_circle_outline : Icons.access_time),
+                                      color: _hasCheckedOutToday() ? Colors.grey : (_hasCheckedInToday() ? primaryColor : Colors.orange),
+                                      size: 30,
                                     ),
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
+                            ),
+                            
+                            const SizedBox(height: 30),
+                            Center(
+                              child: TextButton.icon(
+                                onPressed: () => Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                                ),
+                                icon: const Icon(Icons.logout, color: Colors.red),
+                                label: const Text('تسجيل الخروج', style: TextStyle(color: Colors.red)),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _hasCheckedInToday() ? null : _checkIn,
-                              icon: const Icon(Icons.login),
-                              label: const Text('تسجيل الحضور'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _hasCheckedInToday()
-                                  ? _checkOut
-                                  : null,
-                              icon: const Icon(Icons.logout),
-                              label: const Text('تسجيل الانصراف'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _openRequestScreen('annual'),
-                              icon: const Icon(Icons.event),
-                              label: const Text('طلب إجازة'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _openRequestScreen('mission'),
-                              icon: const Icon(Icons.work_history),
-                              label: const Text('مأمورية'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.deepPurple,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'حالة الطلبات',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          _StatusBadge(
-                            label: 'قيد الانتظار',
-                            count: pendingCount,
-                            color: Colors.orange,
-                          ),
-                          _StatusBadge(
-                            label: 'تمت الموافقة',
-                            count: approvedCount,
-                            color: Colors.green,
-                          ),
-                          _StatusBadge(
-                            label: 'تم الرفض',
-                            count: rejectedCount,
-                            color: Colors.red,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'طلباتي',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _leaveRequests.isEmpty
-                          ? const Card(
-                              child: Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text('لا توجد طلبات حتى الآن'),
-                              ),
-                            )
-                          : ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _leaveRequests.length,
-                              itemBuilder: (context, index) {
-                                final request = _leaveRequests[index];
-                                return Card(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                _getRequestTypeText(
-                                                  request.leaveType,
-                                                ),
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 6,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: _getRequestStatusColor(
-                                                  request.status,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: Text(
-                                                _getRequestStatusText(
-                                                  request.status,
-                                                ),
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Text(
-                                          'من: ${DateFormat('yyyy-MM-dd').format(request.startDate)}',
-                                        ),
-                                        Text(
-                                          'إلى: ${DateFormat('yyyy-MM-dd').format(request.endDate)}',
-                                        ),
-                                        Text(
-                                          'تاريخ الطلب: ${DateFormat('yyyy-MM-dd').format(request.createdAt)}',
-                                        ),
-                                        if (request.reason != null &&
-                                            request.reason!.trim().isNotEmpty)
-                                          Text('التفاصيل: ${request.reason}'),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'سجل الحضور',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _attendanceRecords.isEmpty
-                          ? const Card(
-                              child: Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text('لا توجد سجلات حضور'),
-                              ),
-                            )
-                          : ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _attendanceRecords.length,
-                              itemBuilder: (context, index) {
-                                final record = _attendanceRecords[index];
-                                return Card(
-                                  child: ListTile(
-                                    title: Text(
-                                      DateFormat(
-                                        'yyyy-MM-dd',
-                                      ).format(record.date),
-                                    ),
-                                    subtitle: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        if (record.checkInTime != null)
-                                          Text(
-                                            'حضور: ${DateFormat('HH:mm').format(record.checkInTime!)}',
-                                          ),
-                                        if (record.checkOutTime != null)
-                                          Text(
-                                            'انصراف: ${DateFormat('HH:mm').format(record.checkOutTime!)}',
-                                          ),
-                                        if (record.totalHours > 0)
-                                          Text(
-                                            'إجمالي الساعات: ${record.totalHours.toStringAsFixed(2)}',
-                                          ),
-                                      ],
-                                    ),
-                                    trailing: Icon(
-                                      _getAttendanceStatusIcon(record.status),
-                                      color: _getAttendanceStatusColor(
-                                        record.status,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
+      ),
+    );
+  }
+
+  Widget _buildActionCard(String title, String subtitle, IconData icon, Color bgColor, Color iconColor, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(icon, color: iconColor, size: 28),
+            ),
+            const SizedBox(width: 20),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A1A1A)),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+            const Spacer(),
+            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey.shade300),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _StatusBadge extends StatelessWidget {
-  final String label;
-  final int count;
-  final Color color;
+class EmployeeAttendanceScreen extends StatefulWidget {
+  final Employee employee;
+  final VoidCallback onRefresh;
+  final bool hasCheckedIn;
+  final bool hasCheckedOut;
 
-  const _StatusBadge({
-    required this.label,
-    required this.count,
-    required this.color,
-  });
+  const EmployeeAttendanceScreen({super.key, required this.employee, required this.onRefresh, required this.hasCheckedIn, required this.hasCheckedOut});
+
+  @override
+  State<EmployeeAttendanceScreen> createState() => _EmployeeAttendanceScreenState();
+}
+
+class _EmployeeAttendanceScreenState extends State<EmployeeAttendanceScreen> {
+  final ApiService _apiService = ApiService();
+  bool _isChecking = false;
+  String _currentTime = '';
+  String _currentDate = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _updateTime();
+  }
+
+  void _updateTime() {
+    if (!mounted) return;
+    final now = DateTime.now();
+    setState(() {
+      _currentTime = DateFormat('hh:mm:ss a').format(now);
+      _currentDate = DateFormat('EEEE, d MMMM yyyy', 'ar').format(now);
+    });
+    Future.delayed(const Duration(seconds: 1), _updateTime);
+  }
+
+  Future<void> _handleCheckInOut() async {
+    setState(() => _isChecking = true);
+    try {
+      if (widget.hasCheckedIn && !widget.hasCheckedOut) {
+        await _apiService.checkOut(widget.employee.id!);
+        if (!mounted) return;
+        widget.onRefresh();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تسجيل الانصراف بنجاح')));
+      } else {
+        await _apiService.checkIn(widget.employee.id!);
+        if (!mounted) return;
+        widget.onRefresh();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تسجيل الحضور بنجاح')));
+      }
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e')));
+    } finally {
+      if (mounted) setState(() => _isChecking = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(color: color, fontWeight: FontWeight.w600),
+    return Directionality(
+      textDirection: ui.TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          title: Text(widget.hasCheckedIn && !widget.hasCheckedOut ? 'تسجيل الانصراف' : 'تسجيل الحضور', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
           ),
-          const SizedBox(width: 8),
-          CircleAvatar(
-            radius: 12,
-            backgroundColor: color,
-            child: Text(
-              '$count',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+          actions: [
+            IconButton(icon: const Icon(Icons.qr_code_scanner, color: Colors.black), onPressed: () {}),
+          ],
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: widget.hasCheckedOut 
+                        ? Colors.grey.withOpacity(0.2) 
+                        : (widget.hasCheckedIn ? Colors.redAccent.withOpacity(0.2) : const Color(0xFF1DB954).withOpacity(0.2)), 
+                    width: 10
+                  ),
+                ),
+                child: Center(
+                  child: Container(
+                    width: 160,
+                    height: 160,
+                    decoration: BoxDecoration(
+                      color: widget.hasCheckedOut ? Colors.grey : (widget.hasCheckedIn ? Colors.redAccent : const Color(0xFF1DB954)),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      widget.hasCheckedOut ? Icons.done_all : (widget.hasCheckedIn ? Icons.output_rounded : Icons.check), 
+                      color: Colors.white, 
+                      size: 80
+                    ),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(height: 40),
+              Text(
+                _currentTime,
+                style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A)),
+              ),
+              Text(
+                _currentDate,
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+              ),
+              const SizedBox(height: 40),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.location_on, color: Colors.grey.shade400, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'الموقع الحالي\nالقاهرة، مصر',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              SizedBox(
+                width: double.infinity,
+                height: 60,
+                child: ElevatedButton(
+                  onPressed: widget.hasCheckedOut || _isChecking ? null : _handleCheckInOut,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: widget.hasCheckedOut ? Colors.grey : (widget.hasCheckedIn ? Colors.redAccent : const Color(0xFF1DB954)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                  child: _isChecking 
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : Text(
+                        widget.hasCheckedOut ? 'تم التسجيل لليوم' : (widget.hasCheckedIn ? 'تسجيل الانصراف' : 'تسجيل الحضور'),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)
+                      ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

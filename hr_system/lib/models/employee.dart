@@ -12,6 +12,7 @@ class Employee {
   final DateTime hireDate;
   final double salary;
   final String status; // 'active' or 'inactive'
+  final String? profilePictureUrl;
 
   Employee({
     this.id,
@@ -27,6 +28,7 @@ class Employee {
     required this.hireDate,
     required this.salary,
     this.status = 'active',
+    this.profilePictureUrl,
   });
 
   Map<String, dynamic> toMap() {
@@ -44,6 +46,7 @@ class Employee {
       'hire_date': hireDate.toIso8601String(),
       'salary': salary,
       'status': status,
+      'profile_picture_url': profilePictureUrl,
     };
   }
 
@@ -68,6 +71,7 @@ class Employee {
           ? (map['salary'] as num).toDouble()
           : double.tryParse(map['salary'].toString()) ?? 0.0,
       status: map['status'] as String? ?? 'active',
+      profilePictureUrl: map['profile_picture_url'] as String?,
     );
   }
 
@@ -85,6 +89,7 @@ class Employee {
     DateTime? hireDate,
     double? salary,
     String? status,
+    String? profilePictureUrl,
   }) {
     return Employee(
       id: id ?? this.id,
@@ -100,6 +105,7 @@ class Employee {
       hireDate: hireDate ?? this.hireDate,
       salary: salary ?? this.salary,
       status: status ?? this.status,
+      profilePictureUrl: profilePictureUrl ?? this.profilePictureUrl,
     );
   }
 }

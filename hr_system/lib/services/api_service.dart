@@ -7,6 +7,9 @@ import '../models/leave.dart';
 import '../models/salary_payment.dart';
 import '../models/performance_review.dart';
 import '../models/audit_log.dart';
+import '../models/job_applicant.dart';
+import '../models/communication.dart';
+import '../models/notification.dart';
 
 class ApiService {
   static const String baseUrl =
@@ -250,6 +253,61 @@ class ApiService {
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => AuditLog.fromMap(json)).toList();
+    }
+    return [];
+  }
+
+  // Job Applicants
+  Future<List<JobApplicant>> getJobApplicants() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/applicants'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => JobApplicant.fromMap(json)).toList();
+      }
+    } catch (e) {
+      // Fallback to mock data if endpoint doesn't exist
+      await Future.delayed(const Duration(milliseconds: 500));
+      return [
+        JobApplicant(id: 1, name: 'أحمد محمد علي', position: 'محاسب', email: 'ahmed@email.com', phone: '01012345678', status: 'new', appliedAt: DateTime.now().subtract(const Duration(days: 2))),
+        JobApplicant(id: 2, name: 'سارة عبد الرحمن', position: 'موظف مخزن', email: 'sara@email.com', phone: '01212345678', status: 'reviewing', appliedAt: DateTime.now().subtract(const Duration(days: 3))),
+      ];
+    }
+    return [];
+  }
+
+  // Communications
+  Future<List<Communication>> getCommunications() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/communications'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => Communication.fromMap(json)).toList();
+      }
+    } catch (e) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      return [
+        Communication(id: 1, title: 'طلب شراء مواد', sender: 'قسم المخازن', receiver: 'الإدارة', content: 'نرجو الموافقة...', type: 'purchase_request', status: 'pending', createdAt: DateTime.now()),
+        Communication(id: 2, title: 'نقل موظف', sender: 'الموارد البشرية', receiver: 'المدير', content: 'بخصوص الموظف...', type: 'message', status: 'replied', createdAt: DateTime.now().subtract(const Duration(hours: 5))),
+      ];
+    }
+    return [];
+  }
+
+  // Notifications
+  Future<List<NotificationModel>> getNotifications() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/notifications'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => NotificationModel.fromMap(json)).toList();
+      }
+    } catch (e) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      return [
+        NotificationModel(id: 1, title: 'تم اعتماد طلب الشراء', content: 'تمت الموافقة على طلبك رقم 101', type: 'system', createdAt: DateTime.now().subtract(const Duration(minutes: 15))),
+        NotificationModel(id: 2, title: 'تذكير بالاجتماع', content: 'اجتماع الساعة 10 صباحاً', type: 'event', createdAt: DateTime.now().subtract(const Duration(hours: 2))),
+      ];
     }
     return [];
   }

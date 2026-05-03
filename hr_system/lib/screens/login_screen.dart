@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../models/user.dart';
+import '../models/employee.dart';
 import 'main_screen.dart';
+import 'admin_dashboard_screen.dart';
 import 'employee_dashboard_screen.dart';
 import 'employee_registration_screen.dart';
 import '../providers/theme_provider.dart';
@@ -45,9 +47,16 @@ class _LoginScreenState extends State<LoginScreen> {
         final user = User.fromMap(userMap);
         if (mounted) {
           if (user.role == 'admin') {
+            Employee? employee;
+            if (user.employeeId != null) {
+              employee = await _apiService.getEmployeeById(user.employeeId!);
+            }
+            if (!mounted) return;
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const MainScreen()),
+              MaterialPageRoute(
+                builder: (context) => AdminDashboardScreen(user: user, employee: employee),
+              ),
             );
           } else if (user.role == 'employee') {
             final employee = await _apiService.getEmployeeById(user.employeeId!);
