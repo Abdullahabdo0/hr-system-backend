@@ -2,7 +2,8 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional
 
-# User Schemas
+# ─── User Schemas ────────────────────────────────────────────────────────────
+
 class UserBase(BaseModel):
     username: str
     role: str = 'employee'
@@ -18,7 +19,8 @@ class UserResponse(UserBase):
     class Config:
         from_attributes = True
 
-# Employee Schemas
+# ─── Employee Schemas ─────────────────────────────────────────────────────────
+
 class EmployeeBase(BaseModel):
     name: str
     email: EmailStr
@@ -36,16 +38,30 @@ class EmployeeBase(BaseModel):
 class EmployeeCreate(EmployeeBase):
     pass
 
-class EmployeeUpdate(EmployeeBase):
-    pass
+class EmployeeUpdate(BaseModel):
+    """All fields optional so only sent fields are updated."""
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    position: Optional[str] = None
+    department: Optional[str] = None
+    location: Optional[str] = None
+    national_id: Optional[str] = None
+    qualification: Optional[str] = None
+    address: Optional[str] = None
+    hire_date: Optional[datetime] = None
+    salary: Optional[float] = None
+    status: Optional[str] = None
 
 class EmployeeResponse(EmployeeBase):
     id: int
+    profile_picture_url: Optional[str] = None
 
     class Config:
         from_attributes = True
 
-# Attendance Schemas
+# ─── Attendance Schemas ───────────────────────────────────────────────────────
+
 class AttendanceBase(BaseModel):
     employee_id: int
     date: datetime
@@ -55,17 +71,20 @@ class AttendanceCreate(AttendanceBase):
     check_in_time: Optional[datetime] = None
     check_out_time: Optional[datetime] = None
     total_hours: Optional[float] = None
+    notes: Optional[str] = None
 
 class AttendanceResponse(AttendanceBase):
     id: int
     check_in_time: Optional[datetime] = None
     check_out_time: Optional[datetime] = None
     total_hours: Optional[float] = None
+    notes: Optional[str] = None
 
     class Config:
         from_attributes = True
 
-# Leave Schemas
+# ─── Leave Schemas ────────────────────────────────────────────────────────────
+
 class LeaveBase(BaseModel):
     employee_id: int
     leave_type: str
@@ -86,7 +105,8 @@ class LeaveResponse(LeaveBase):
     class Config:
         from_attributes = True
 
-# Salary Payment Schemas
+# ─── Salary Payment Schemas ───────────────────────────────────────────────────
+
 class SalaryPaymentBase(BaseModel):
     employee_id: int
     amount: float
@@ -104,7 +124,8 @@ class SalaryPaymentResponse(SalaryPaymentBase):
     class Config:
         from_attributes = True
 
-# Performance Review Schemas
+# ─── Performance Review Schemas ───────────────────────────────────────────────
+
 class PerformanceReviewBase(BaseModel):
     employee_id: int
     review_date: datetime
@@ -122,7 +143,8 @@ class PerformanceReviewResponse(PerformanceReviewBase):
     class Config:
         from_attributes = True
 
-# Audit Log Schemas
+# ─── Audit Log Schemas ────────────────────────────────────────────────────────
+
 class AuditLogBase(BaseModel):
     user_id: Optional[int] = None
     action: str
@@ -135,6 +157,70 @@ class AuditLogCreate(AuditLogBase):
     pass
 
 class AuditLogResponse(AuditLogBase):
+    id: int
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+# ─── Job Applicant Schemas ────────────────────────────────────────────────────
+
+class JobApplicantBase(BaseModel):
+    name: str
+    position: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    status: str = 'new'
+    notes: Optional[str] = None
+    applied_at: Optional[datetime] = None
+
+class JobApplicantCreate(JobApplicantBase):
+    pass
+
+class JobApplicantUpdate(BaseModel):
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+class JobApplicantResponse(JobApplicantBase):
+    id: int
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+# ─── Communication Schemas ────────────────────────────────────────────────────
+
+class CommunicationBase(BaseModel):
+    title: str
+    sender: Optional[str] = None
+    receiver: Optional[str] = None
+    content: Optional[str] = None
+    type: str = 'message'
+    status: str = 'pending'
+
+class CommunicationCreate(CommunicationBase):
+    pass
+
+class CommunicationResponse(CommunicationBase):
+    id: int
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+# ─── Notification Schemas ─────────────────────────────────────────────────────
+
+class NotificationBase(BaseModel):
+    title: str
+    content: Optional[str] = None
+    type: str = 'system'
+    is_read: bool = False
+    target_user_id: Optional[int] = None
+
+class NotificationCreate(NotificationBase):
+    pass
+
+class NotificationResponse(NotificationBase):
     id: int
     created_at: Optional[datetime] = None
 
