@@ -91,7 +91,7 @@ app = FastAPI(
 )
 
 # ── Static files (uploads) ───────────────────────────────────────────────────
-UPLOAD_DIR = "uploads"
+UPLOAD_DIR = "/tmp/uploads" if os.getenv("VERCEL") else "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # ── CORS ──────────────────────────────────────────────────────────────────────

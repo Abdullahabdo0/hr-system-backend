@@ -44,7 +44,7 @@ async def upload_image(
     if file_extension not in allowed_extensions:
         raise HTTPException(status_code=400, detail="نوع الملف غير مسموح به")
 
-    upload_dir = "uploads"
+    upload_dir = "/tmp/uploads" if os.getenv("VERCEL") else "uploads"
     os.makedirs(upload_dir, exist_ok=True)
 
     file_name = f"profile_{employee_id}.{file_extension}"
