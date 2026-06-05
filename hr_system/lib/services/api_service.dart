@@ -13,7 +13,7 @@ import '../models/notification.dart';
 
 class ApiService {
   static const String baseUrl =
-      'https://hr-system-backend-production-c02d.up.railway.app/api';
+      'https://hr-system-backend-sandy.vercel.app/api';
 
   // Auth
   Future<Map<String, dynamic>?> login(String username, String password) async {
